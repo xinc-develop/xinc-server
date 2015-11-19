@@ -4,10 +4,16 @@
     "description": "Xinc Server Deamon with the Sunrise build engine.",
     "homepage": "http://code.google.com/p/xinc/",
     "license": "LGPL-3.0+",
-    "version": "2.3.90",
+    "authors": [
+        { "name": "David Ellis" },
+	{ "name": "Gavin Foster" },
+        { "name": "Jamie Talbot" },
+        { "name": "Alexander Opitz", "email": "opitz.alexander@gmail.com" },
+	{ "name": "Sebastian Knapp", "email": "news@young-workers.de" }
+    ],
     "require": {
         "php": ">=5.4.4",
-        "xinc/core": "*",
+        "xinc/core": "3.0.0",
         "shaneharter/php-daemon": "dev-master"
     },
     "autoload": {

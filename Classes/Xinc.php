@@ -11,7 +11,9 @@
  * @author    Gavin Foster <username@example.org>
  * @author    Jamie Talbot <username@example.org>
  * @author    Alexander Opitz <opitz.alexander@gmail.com>
+ * @author    Sebastian Knapp <news@young-workers.de>
  * @copyright 2007 David Ellis, One Degree Square
+ * @copyright 2015 Xinc Development Team <https://github.com/xinc-develop>
  * @license   http://www.gnu.org/copyleft/lgpl.html GNU/LGPL, see license.php
  *            This file is part of Xinc.
  *            Xinc is free software; you can redistribute it and/or modify
@@ -32,9 +34,11 @@
 
 namespace Xinc\Server;
 
+use Xinc\Core\Plugin\Repository as PluginRepository;
+
 class Xinc
 {
-    const VERSION = '2.3.90';
+    const VERSION = '3.0.0';
 
     const DEFAULT_PROJECT_DIR = 'projects';
     const DEFAULT_STATUS_DIR = 'status';
@@ -286,7 +290,8 @@ class Xinc
      */
     protected function initPlugins()
     {
-        \Xinc\Core\Plugin\Repository::getInstance()->loadPluginConfig();
+        $repository = PluginRepository::getInstance();
+        $repository->loadPluginConfig();
     }
 
     /**
@@ -325,6 +330,7 @@ class Xinc
             $xinc->initLogger();
             $xinc->initPlugins();
             $xinc->validateCliOptions();
+            $xinc->logStartupSettings();
             $daemon = $xinc->initDaemon();
             $daemon->run();
         } catch (\Exception $e) {
