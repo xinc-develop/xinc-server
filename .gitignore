@@ -1,5 +1,8 @@
 composer.phar
 vendor/
+composer
 composer.lock
 *~
+
+Executes/xinc.log
 
