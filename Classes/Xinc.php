@@ -34,98 +34,133 @@
 
 namespace Xinc\Server;
 
+use Xinc\Core\Build\Queue as BuildQueue;
+use Xinc\Core\Properties;
 use Xinc\Core\Plugin\Repository as PluginRepository;
 
 class Xinc
 {
-    const VERSION = '3.0.0';
+    const VERSION = '3.0.1';
 
     const DEFAULT_PROJECT_DIR = 'projects';
     const DEFAULT_STATUS_DIR = 'status';
 
-    /**
-     * Current working directory
-     * containing the default xinc projects
-     *
-     * @var string
-     */
-    private $workingDir;
+    private $buildQueue;
+    public $options;
+    public $log;
 
-    /**
-     * Directory holding the projects
-     *
-     * @var string
-     */
-    private $projectDir;
-
-    /**
-     * The directory to drop xml status files
-     *
-     * @var string
-     */
-    private $statusDir;
-
-    /**
-     * @var array Holding the merged cli parameters.
-     */
-    private $options = array();
-
-    /**
-     * Handle command line arguments.
-     *
-     * @return void
-     */
-    protected function parseCliOptions()
+    public function __construct()
     {
-        $workingDir = dirname($_SERVER['argv'][0]);
+		$this->options = new Properties();
+		$this->setOptions(array(
+		    'project-file' => null,
+		    'once' => false
+		));
+	}
+	
+    public function setOptions($opts)
+    {
+		$this->options->set($opts);
+	}
+	
+	public function setOption($key,$value)
+	{
+		$this->options->set($key,$value);
+	}
+	
+	public function initialize()
+	{
+		$this->validateOptions();
+		$this->initLogger();
+		$this->logVersion();
+		$this->logStartupSettings();
+		
+        $this->buildQueue = new BuildQueue();
+	}
 
-        $opts = getopt(
-            'r:w:s:f:l:v:o',
-            array(
-                'project-dir:',
-                'working-dir:',
-                'status-dir:',
-                'project-file:',
-                'log-file:',
-                'pid-file:', // not easy  in Core_Daemon
-                'verbose:', // not easy  in Core_Daemon
-                'once',  // done
-                'version',  // done
-                'help',  // done
-                'deamon',  // not easy  in Core_Daemon
-                '::',
-            )
-        );
+    public function run($args = '')
+    {
+        try {
+            // get the project config files
+            if (isset($arguments['projectFiles'])) {
+                /**
+                 * pre-process projectFiles
+                 */
+                $merge = array();
+                for ($i = 0; $i<count($arguments['projectFiles']); $i++) {
+                    $projectFile = $arguments['projectFiles'][$i];
+                    if (!file_exists($projectFile) && strstr($projectFile, '*')) {
+                        // we are probably under windows and the command line does not
+                        // autoexpand *.xml
+                        $array = glob($projectFile);
+                        /**
+                         * get rid of the not expanded file
+                         */
+                        unset($arguments['projectFiles'][$i]);
+                        /**
+                         * merge the glob'ed files
+                         */
+                        $merge = array_merge($merge, $array);
+                    } else {
+                        $arguments['projectFiles'][$i] = realpath($projectFile);
+                    }
+                }
+                /**
+                 * merge all the autoglobbed files with the original ones
+                 */
+                $arguments['projectFiles'] = array_merge($arguments['projectFiles'], $merge);
 
-        if (isset($opts['version'])) {
-            $this->logVersion();
-            exit();
+                foreach ($arguments['projectFiles'] as $projectFile) {
+                    $logger->info('Loading Project-File: ' . $projectFile);
+                    self::$_instance->_addProjectFile($projectFile);
+                }
+            }
+            $this->start();
+        } catch (Xinc_Build_Status_Exception_NoDirectory $statusNoDir) {
+            $logger->error(
+                'Xinc stopped: ' . 'Status Dir: "'
+                . $statusNoDir->getDirectory() . '" is not a directory',
+                STDERR
+            );
+        } catch (Xinc_Exception_IO $ioException) {
+            $logger->error(
+                'Xinc stopped: ' . $ioException->getMessage(),
+                STDERR
+            );
+        } catch (Xinc_Config_Exception_FileNotFound $configFileNotFound) {
+            $logger->error(
+                'Xinc stopped: ' . 'Config File "'
+                . $configFileNotFound->getFileName() . '" not found',
+                STDERR
+            );
+        } catch (Exception $e) {
+            // we need to catch everything here
+            $logger->error(
+                'Xinc stopped due to an uncaught exception: ' 
+                . $e->getMessage() . ' in File : ' . $e->getFile() . ' on line '
+                . $e->getLine() . $e->getTraceAsString(),
+                STDERR
+            );
         }
 
-        if (isset($opts['help'])) {
-            $this->showHelp();
-            exit();
+        $this->shutDown();
+    }
+    
+    /**
+     * Starts the continuous loop.
+     */
+    protected function start()
+    {
+        if (!$this->options['once']) {
+            $res=register_tick_function(array($this, 'checkShutdown'));
+            $this->log->info('Registering shutdown function: ' . ($res?'OK':'NOK'));
+            $this->processBuildsDaemon();
+        } else {
+            $this->log->info('Run-once mode '
+                                            . '(project interval is negative)');
+            //Xinc_Logger::getInstance()->flush();
+            $this->processBuildsRunOnce();
         }
-
-        $this->options = $this->mergeOpts(
-            $opts,
-            array(
-                'w' => 'working-dir',
-                'r' => 'project-dir',
-                's' => 'status-dir',
-                'f' => 'project-file',
-                'l' => 'log-file',
-                'v' => 'verbose',
-                'o' => 'once',
-            ),
-            array (
-                'working-dir' => $workingDir,
-                'project-dir' => $workingDir . DIRECTORY_SEPARATOR . self::DEFAULT_PROJECT_DIR . DIRECTORY_SEPARATOR,
-                'status-dir'  => $workingDir . DIRECTORY_SEPARATOR . self::DEFAULT_STATUS_DIR . DIRECTORY_SEPARATOR,
-                'log-file'    => $workingDir . DIRECTORY_SEPARATOR . 'xinc.log',
-                'verbose'     => \Xinc\Core\Logger::DEFAULT_LOG_LEVEL,
-            )
-        );
     }
 
     /**
@@ -133,37 +168,11 @@ class Xinc
      *
      * @throws Xinc\Core\Exception\IOException
      */
-    protected function validateCliOptions()
+    protected function validateOptions()
     {
         $this->checkDirectory($this->options['working-dir']);
         $this->checkDirectory($this->options['project-dir']);
         $this->checkDirectory($this->options['status-dir']);
-    }
-
-    /**
-     * Merges the default config and the short/long arguments given by mapping together.
-     * TODO: It doesn't respect options which aren't in the mapping.
-     *
-     * @param array $opts The options after php getopt function call.
-     * @param array $mapping Mapping from short to long argument names.
-     * @param array $default The default values for some arguments.
-     *
-     * @return array Mapping of the long arguments to the given values.
-     */
-    protected function mergeOpts($opts, $mapping, $default)
-    {
-        $merge = $default;
-
-        foreach ($mapping as $keyShort => $keyLong) {
-            if (isset($opts[$keyShort])) {
-                $merge[$keyLong] = $opts[$keyShort];
-            }
-            if (isset($opts[$keyLong])) {
-                $merge[$keyLong] = $opts[$keyLong];
-            }
-        }
-
-        return $merge;
     }
 
     /**
@@ -205,45 +214,6 @@ class Xinc
     }
 
     /**
-     * TODO: Needs to be somewhere else?
-     * returns the builtin properties that can be used
-     * in all xinc config files
-     *
-     * @return array
-     */
-//     public function getBuiltinProperties()
-//     {
-//         $properties = array();
-//         $properties['workingdir'] = $this->getWorkingDir();
-//         $properties['statusdir'] = $this->getStatusDir();
-//         $properties['projectdir'] = $this->getProjectDir();
-//
-//         return $properties;
-//     }
-
-    /**
-     * prints help message, describing different parameters to run xinc
-     *
-     * @return void
-     */
-    protected function showHelp()
-    {
-        echo 'Usage: xinc [switches]' . "\n\n";
-
-        echo '  -f --project-file=<file>  The project file to use.' . "\n"
-            . '  -l --log-file=<file>      The log file to use.' . "\n"
-            . '  -p --pid-file=<file>      The directory to put the PID file' . "\n"
-            . '  -r --project-dir=<dir>    The project directory.' . "\n"
-            . '  -s --status-dir=<dir>     The status directory to use.' . "\n"
-            . '  -w --working-dir=<dir>    The working directory.' . "\n"
-            . '  -v --verbose=<level>      The level of information to log (default 2).' . "\n"
-            . '  -o --once                 Run once and exit.' . "\n"
-            . '  -d --daemon               Daemon, detach and run in the background' . "\n"
-            . '  --version                 Prints the version of Xinc.' . "\n"
-            . '  -h --help                 Prints this help message.' . "\n";
-    }
-
-    /**
      * Prints the startup information of xinc
      *
      * @return void
@@ -275,67 +245,19 @@ class Xinc
      */
     public function initLogger()
     {
-        $logger = \Xinc\Core\Logger::getInstance();
+        $this->log = $logger = \Xinc\Core\Logger::getInstance();
 
         $logger->setLogLevel($this->options['verbose']);
         $logger->setXincLogFile($this->options['log-file']);
     }
 
     /**
-     * Initialize the Plugins
-     * TODO: Not yet done only Sunrise is registered as engine by hand.
+     * Returns the Version of Xinc
      *
-     * @return void
-     * @TODO Needs work.
+     * @return string
      */
-    protected function initPlugins()
+    public function getVersion()
     {
-        $repository = PluginRepository::getInstance();
-        $repository->loadPluginConfig();
-    }
-
-    /**
-     * Initialize the daemon
-     *
-     * @return void
-     */
-    protected function initDaemon()
-    {
-        $daemon = Daemon::getInstance();
-        if (!$daemon) {
-            throw new \Exception(
-                'Couldn\'t create instance, hopefully you got some error messages on console or in the log file.'
-            );
-        }
-
-        if (isset($this->options['once'])) {
-            $daemon->setRunOnce();
-        }
-
-        $daemon->setWorkingDir($this->options['working-dir']);
-        $daemon->setProjectDir($this->options['project-dir']);
-        $daemon->setStatusDir($this->options['status-dir']);
-        if (isset($this->options['project-file'])) {
-            $daemon->addProjectFiles($this->options['project-file']);
-        }
-
-        return $daemon;
-    }
-
-    public static function execute()
-    {
-        try {
-            $xinc = new self();
-            $xinc->parseCliOptions();
-            $xinc->initLogger();
-            $xinc->initPlugins();
-            $xinc->validateCliOptions();
-            $xinc->logStartupSettings();
-            $daemon = $xinc->initDaemon();
-            $daemon->run();
-        } catch (\Exception $e) {
-            echo $e->getMessage();
-            exit(1);
-        }
+        return self::VERSION;
     }
 }

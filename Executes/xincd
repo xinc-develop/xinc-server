@@ -19,4 +19,4 @@
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
-Xinc\Server\Xinc::execute();
+Xinc\Server\Cmd::execute();

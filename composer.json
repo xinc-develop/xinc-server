@@ -1,7 +1,7 @@
 {
     "name": "xinc/server",
     "type": "xinc-application-package",
-    "description": "Xinc Server Deamon with the Sunrise build engine.",
+    "description": "Xinc Continous Integration Server",
     "homepage": "http://code.google.com/p/xinc/",
     "license": "LGPL-3.0+",
     "authors": [
@@ -13,8 +13,10 @@
     ],
     "require": {
         "php": ">=5.4.4",
-        "xinc/core": "3.0.0",
-        "shaneharter/php-daemon": "dev-master"
+        "xinc/core": "3.0.2"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "4.8.*"
     },
     "autoload": {
         "psr-4": {
