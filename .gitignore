@@ -4,5 +4,8 @@ composer
 composer.lock
 *~
 
+phpunit
+
+scratches
 Executes/xinc.log
 
