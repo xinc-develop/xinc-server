@@ -1,9 +1,6 @@
 <?php
 /**
  * Xinc - Continuous Integration.
- * The main control class.
- *
- * PHP version 5
  *
  * @category  Development
  * @package   Xinc.Server
@@ -34,10 +31,13 @@
 
 namespace Xinc\Server;
 
-use Xinc\Core\Build\Queue as BuildQueue;
+use Xinc\Core\Build\BuildQueue;
 use Xinc\Core\Properties;
 use Xinc\Core\Plugin\Repository as PluginRepository;
 
+/**
+ * The main control class.
+ */
 class Xinc
 {
     const VERSION = '3.0.1';
@@ -166,7 +166,7 @@ class Xinc
     /**
      * Validates the given options (working-dir, status-dir, project-dir)
      *
-     * @throws Xinc\Core\Exception\IOException
+     * @throws Xinc::Core::Exception::IOException
      */
     protected function validateOptions()
     {
@@ -187,7 +187,7 @@ class Xinc
     protected function checkDirectory($strDirectory)
     {
         if (!is_dir($strDirectory)) {
-            \Xinc\Core\Logger::getInstance()->verbose(
+            $this->log->verbose(
                 'Directory "' . $strDirectory . '" does not exist. Trying to create'
             );
             $bCreated = @mkdir($strDirectory, 0755, true);
@@ -220,7 +220,7 @@ class Xinc
      */
     public function logStartupSettings()
     {
-        $logger = \Xinc\Core\Logger::getInstance();
+        $logger = $this->log;
 
         $logger->info('Starting up Xinc');
         $logger->info('- Version:    ' . Xinc::VERSION);
@@ -235,7 +235,7 @@ class Xinc
      */
     public function logVersion()
     {
-        \Xinc\Core\Logger::getInstance()->info('Xinc version ' . Xinc::VERSION);
+        $this->log->info('Xinc version ' . Xinc::VERSION);
     }
 
     /**
@@ -260,4 +260,59 @@ class Xinc
     {
         return self::VERSION;
     }
+    
+        /**
+     * Checks if a special shutdown file exists 
+     * and exits if it does
+     *
+     */
+    public function checkShutdown()
+    {
+        $file = $this->shutdownFlag();
+        if (file_exists($file) && $this->buildActive == false) {
+            $this->log->info('Preparing to shutdown');
+            $statInfo = stat($file);
+            $fileUid = $statInfo['uid'];
+            /**
+             * Only the user running xinc cann issue a shutdown
+             */
+            if ($fileUid == getmyuid()) {
+                $this->shutDown(true);
+            } else {
+                // delete the file
+                unlink($file);
+            }
+        }
+    }
+    
+    /**
+     * shutsdown the xinc instance and cleans up pidfile etc
+     *
+     * @param boolean $exit
+     */
+    private function shutDown($exit=false)
+    {
+        $file = $this->shutdownFlag();
+        if (file_exists($file)) {
+            unlink($file);
+        }
+        $pidFile = $this->getPidFile();
+        if (file_exists($pidFile)) {
+                unlink($pidFile);
+        }
+        $this->log->info('Goodbye. Shutting down Xinc');
+        if ($exit) {
+            exit();
+        }
+    }
+    
+    private function shutdownFlag()
+    {
+		return $this->options['status-dir'] . DIRECTORY_SEPARATOR . '.shutdown';
+	}
+	
+	protected function getPidFile()
+	{
+		return $this->options['pid-file'];
+	}
 }
