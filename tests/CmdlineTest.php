@@ -36,10 +36,12 @@ class CmdlineTest extends BaseTest
 		$cmd = new \Xinc\Server\Cmd();
 		$xinc = $cmd->setupXinc();
 		
-		$this->assertNull($xinc->options['project-file']); 
+		$this->assertNull($xinc->options['project-file']);
+		$this->assertNull($xinc->options['config-file']);
         $this->assertFalse($xinc->options['once']); 
-        $this->assertEquals('.', $xinc->options['working-dir']);
-        $this->assertEquals('./projects/',$xinc->options['project-dir']);
+        $this->assertEquals('./', $xinc->options['working-dir']);
+        $this->assertEquals('./etc/xinc/',$xinc->options['config-dir']);
+        $this->assertEquals('./etc/xinc/projects/',$xinc->options['project-dir']);
         $this->assertEquals('./status/',$xinc->options['status-dir']);
         $this->assertEquals('./xinc.log',$xinc->options['log-file']);
         $this->assertEquals('./.xinc.pid',$xinc->options['pid-file']);

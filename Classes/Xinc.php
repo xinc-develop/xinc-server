@@ -4,9 +4,9 @@
  *
  * @category  Development
  * @package   Xinc.Server
- * @author    David Ellis  <username@example.org>
- * @author    Gavin Foster <username@example.org>
- * @author    Jamie Talbot <username@example.org>
+ * @author    David Ellis
+ * @author    Gavin Foster
+ * @author    Jamie Talbot
  * @author    Alexander Opitz <opitz.alexander@gmail.com>
  * @author    Sebastian Knapp <news@young-workers.de>
  * @copyright 2007 David Ellis, One Degree Square
@@ -53,6 +53,7 @@ class Xinc
     {
 		$this->options = new Properties();
 		$this->setOptions(array(
+		    'config-file' => null,
 		    'project-file' => null,
 		    'once' => false
 		));
@@ -78,9 +79,50 @@ class Xinc
         $this->buildQueue = new BuildQueue();
 	}
 
-    public function run($args = '')
+    private function loadProjects()
+    {
+		$pd = $this->options['project-dir'];
+	    if(isset($this->options['project-file'])) {
+			
+		}
+		else {
+			
+		}	
+	}
+	
+    /**
+     * Add a projectfile to the xinc processing
+     *
+     * @param string $fileName
+     */
+    private function addProjectFile($fileName)
     {
         try {
+            $config = new Xinc_Project_Config($fileName);
+            $engineName = $config->getEngineName();
+
+            $engine = Xinc_Engine_Repository::getInstance()->getEngine($engineName);
+
+            $builds = $engine->parseProjects($config->getProjects());
+
+            Xinc::$_buildQueue->addBuilds($builds);
+
+        } catch (Xinc_Project_Config_Exception_FileNotFound $notFound) {
+            Xinc_Logger::getInstance()->error('Project Config File ' . $fileName . ' cannot be found');
+        } catch (Xinc_Project_Config_Exception_InvalidEntry $invalid) {
+            Xinc_Logger::getInstance()->error('Project Config File has an invalid entry: ' . $invalid->getMessage());
+        } catch (Xinc_Engine_Exception_NotFound $engineNotFound) {
+            Xinc_Logger::getInstance()->error('Project Config File references an unknown Engine: ' 
+                                             . $engineNotFound->getMessage());
+        }
+    }
+
+    public function run()
+    {
+        try {
+			$this->loadConfig();
+			$this->loadProjects();
+			
             // get the project config files
             if (isset($arguments['projectFiles'])) {
                 /**
@@ -193,13 +235,14 @@ class Xinc
             $bCreated = @mkdir($strDirectory, 0755, true);
             if (!$bCreated) {
                 $arError = error_get_last();
-                \Xinc\Core\Logger::getInstance()->verbose(
+                $this->log->warn(
                     'Directory "' . $strDirectory . '" could not be created.'
                 );
-                throw new \Xinc\Core\Exception\IOException($strDirectory, null, $arError['message']);
+                throw new \Xinc\Core\Exception\IOException(
+                    $strDirectory, null, $arError['message']);
             }
         } elseif (!is_writeable($strDirectory)) {
-            \Xinc\Core\Logger::getInstance()->verbose(
+            $this->log->warn(
                 'Directory "' . $strDirectory . '" is not writeable.'
             );
             throw new \Xinc\Core\Exception\IOException(
@@ -292,7 +335,7 @@ class Xinc
      */
     private function shutDown($exit=false)
     {
-        $file = $this->shutdownFlag();
+        $file = $this->getShutdownFlag();
         if (file_exists($file)) {
             unlink($file);
         }
@@ -306,7 +349,7 @@ class Xinc
         }
     }
     
-    private function shutdownFlag()
+    private function getShutdownFlag()
     {
 		return $this->options['status-dir'] . DIRECTORY_SEPARATOR . '.shutdown';
 	}

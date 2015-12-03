@@ -51,7 +51,8 @@ class Cmd
     {
         echo "Usage: {$argv[0]} [switches] [project-file-1 [project-file-2 ...]]\n\n";
 
-        echo "  -f --config-file=<file>   The config file to use.\n" .
+        echo "  -c --config-file=<file>   The config file to use.\n" .
+             "  -d --config-dir=<dir>     The config dir to use.\n" .
              "  -p --project-dir=<dir>    The project directory.\n" .
              "  -w --working-dir=<dir>    The working directory.\n" .
              "  -l --log-file=<file>      The log file to use.\n" . 
@@ -71,12 +72,14 @@ class Cmd
     protected function parseCliOptions()
     {
 		$ds = DIRECTORY_SEPARATOR;
-        $workingDir = dirname($_SERVER['argv'][0]);
+        $workingDir = dirname($_SERVER['argv'][0]) . $ds;
+        $configDir = "{$workingDir}etc{$ds}xinc{$ds}";
 
         $opts = getopt(
-            'f:p:w:l:v:s:i:oh',
+            'c:d:f:p:w:l:v:s:i:oh',
             array(
-                'config-file',
+                'config-file:',
+                'config-dir:',
                 'project-dir:',
                 'working-dir:',
                 'status-dir:',
@@ -103,6 +106,8 @@ class Cmd
         $options = $this->mergeOpts(
             $opts,
             array(
+                'c' => 'config-file',
+                'd' => 'config-dir',
                 'w' => 'working-dir',
                 'p' => 'project-dir',
                 's' => 'status-dir',
@@ -114,11 +119,12 @@ class Cmd
             ),
             array (
                 'working-dir' => $workingDir,
-                'project-dir' => "$workingDir$ds" . Xinc::DEFAULT_PROJECT_DIR . $ds,
-                'status-dir'  => "$workingDir$ds" . Xinc::DEFAULT_STATUS_DIR . $ds,
-                'log-file'    => "$workingDir$ds" . 'xinc.log',
+                'config-dir'  => $configDir,
+                'project-dir' => "$configDir" . Xinc::DEFAULT_PROJECT_DIR . $ds,
+                'status-dir'  => "$workingDir" . Xinc::DEFAULT_STATUS_DIR . $ds,
+                'log-file'    => "$workingDir" . 'xinc.log',
                 'verbose'     => \Xinc\Core\Logger::DEFAULT_LOG_LEVEL,
-                'pid-file'    => "$workingDir$ds" . ".xinc.pid"
+                'pid-file'    => "$workingDir" . ".xinc.pid"
             )
         );
         return $options;
