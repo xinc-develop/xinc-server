@@ -28,12 +28,13 @@ use Xinc\Core\Models\Project;
 use Xinc\Core\Project\Status as ProjectStatus;
 
 use Xinc\Core\Test\BaseTest;
+use \Xinc\Server\Cmd;
 
 class CmdlineTest extends BaseTest
 {  
     public function testDefaults()
     {
-		$cmd = new \Xinc\Server\Cmd();
+		$cmd = new Cmd();
 		$xinc = $cmd->setupXinc();
 		
 		$this->assertNull($xinc->options['project-file']);
@@ -46,8 +47,12 @@ class CmdlineTest extends BaseTest
         $this->assertEquals('./xinc.log',$xinc->options['log-file']);
         $this->assertEquals('./.xinc.pid',$xinc->options['pid-file']);
         $this->assertEquals(2,$xinc->options['verbose']);
-
-//		print_r($xinc);
     }
 
+    public function testConfigFile()
+    {
+		$argv = ['xincd','-c','test-config.xml'];
+		$xinc = (new Cmd)->setupXinc();
+	    $this->assertEquals('test-config.xml',$xinc->options['config-file']);
+	}
 }

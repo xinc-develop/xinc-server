@@ -39,7 +39,7 @@ class Cmd
 	public function setupXinc()
 	{
 		$xinc = new Xinc();
-	    $xinc->setOptions($this->parseCliOptions());
+	    $xinc->getConfig()->setOptions($this->parseCliOptions());
         return $xinc;
     }
     

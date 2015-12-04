@@ -2,8 +2,6 @@
 /**
  * Xinc - Continuous Integration.
  *
- * @category  Development
- * @package   Xinc.Server
  * @author    David Ellis
  * @author    Gavin Foster
  * @author    Jamie Talbot
@@ -32,7 +30,8 @@
 namespace Xinc\Server;
 
 use Xinc\Core\Build\BuildQueue;
-use Xinc\Core\Properties;
+use Xinc\Core\Config\Config;
+use Xinc\Core\Config\Xml;
 use Xinc\Core\Plugin\Repository as PluginRepository;
 
 /**
@@ -40,44 +39,55 @@ use Xinc\Core\Plugin\Repository as PluginRepository;
  */
 class Xinc
 {
-    const VERSION = '3.0.1';
+    const VERSION = '3.0.2';
 
     const DEFAULT_PROJECT_DIR = 'projects';
     const DEFAULT_STATUS_DIR = 'status';
 
+    /**
+     * the configuration object
+     */
+    private $config;
+    /**
+     * Object which loads the main configuration
+     */
+    private $configLoader;
     private $buildQueue;
+    
     public $options;
     public $log;
 
     public function __construct()
     {
-		$this->options = new Properties();
-		$this->setOptions(array(
+		$this->config = new Config();
+		$this->options = $this->config->getOptions();
+		$this->config->setOptions(array(
 		    'config-file' => null,
 		    'project-file' => null,
 		    'once' => false
 		));
+		$this->configLoader = new Xml();
 	}
 	
-    public function setOptions($opts)
-    {
-		$this->options->set($opts);
-	}
-	
-	public function setOption($key,$value)
+	public function getConfig()
 	{
-		$this->options->set($key,$value);
+	    return $this->config;	
 	}
 	
 	public function initialize()
 	{
-		$this->validateOptions();
 		$this->initLogger();
+		$this->validateOptions();
 		$this->logVersion();
 		$this->logStartupSettings();
 		
         $this->buildQueue = new BuildQueue();
 	}
+	
+    private function loadConfig()
+    {
+	    $this->configLoader->load($this->config);	
+	}	
 
     private function loadProjects()
     {
