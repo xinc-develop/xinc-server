@@ -29,10 +29,16 @@
 
 namespace Xinc\Server;
 
+use Xinc\Core\Config\ConfigLoaderInterface;
+use Xinc\Core\Registry\XincRegistryInterface;
+
 use Xinc\Core\Build\BuildQueue;
 use Xinc\Core\Config\Config;
 use Xinc\Core\Config\Xml;
-use Xinc\Core\Plugin\Repository as PluginRepository;
+use Xinc\Core\Logger;
+use Xinc\Core\Registry\Registry;
+
+use Xinc\Core\Exception\Mistake;
 
 /**
  * The main control class.
@@ -52,6 +58,10 @@ class Xinc
      * Object which loads the main configuration
      */
     private $configLoader;
+    /**
+     * Registry for various parts of Xinc
+     */
+    private $registry;
     private $buildQueue;
     
     public $options;
@@ -66,7 +76,6 @@ class Xinc
 		    'project-file' => null,
 		    'once' => false
 		));
-		$this->configLoader = new Xml();
 	}
 	
 	public function getConfig()
@@ -78,16 +87,22 @@ class Xinc
 	{
 		$this->initLogger();
 		$this->validateOptions();
+		$this->applyOptions();
 		$this->logVersion();
 		$this->logStartupSettings();
-		
         $this->buildQueue = new BuildQueue();
+	}
+	
+	private function prepare()
+	{
+		$this->initConfigLoader();
+		$this->initRegistry();
 	}
 	
     private function loadConfig()
     {
-	    $this->configLoader->load($this->config);	
-	}	
+	    $this->configLoader->load($this->config, $this->registry);	
+	}
 
     private function loadProjects()
     {
@@ -100,6 +115,34 @@ class Xinc
 		}	
 	}
 	
+	protected function initAttributeOnce($attr,$obj,$construct)
+	{
+		if(empty($this->$attr)) {
+		    if($obj === null) {
+			    $this->$attr = $construct();
+			    $this->$attr->setLogger($this->log);
+		    }
+		    else {
+				$this->$attr = $c;
+			}
+		}
+		else {
+			throw new Mistake("A {$attr} was already set.");
+		}		
+	}
+	
+	public function initConfigLoader(ConfigLoaderInterface $c = null)
+	{
+		$this->initAttributeOnce('configLoader',$c,
+		    function () { return new Xml(); });
+	}
+	
+	public function initRegistry(XincRegistryInterface $reg = null)
+	{
+		$this->initAttributeOnce('registry',$reg,
+		    function () { return new Registry(); });
+	}
+
     /**
      * Add a projectfile to the xinc processing
      *
@@ -130,6 +173,7 @@ class Xinc
     public function run()
     {
         try {
+			$this->prepare();
 			$this->loadConfig();
 			$this->loadProjects();
 			
@@ -226,6 +270,11 @@ class Xinc
         $this->checkDirectory($this->options['project-dir']);
         $this->checkDirectory($this->options['status-dir']);
     }
+    
+    protected function applyOptions()
+    {
+		
+	}
 
     /**
      * Checks if the directory is available otherwise tries to create it.
@@ -298,8 +347,7 @@ class Xinc
      */
     public function initLogger()
     {
-        $this->log = $logger = \Xinc\Core\Logger::getInstance();
-
+        $this->log = $logger = new Logger();
         $logger->setLogLevel($this->options['verbose']);
         $logger->setXincLogFile($this->options['log-file']);
     }
@@ -367,5 +415,11 @@ class Xinc
 	protected function getPidFile()
 	{
 		return $this->options['pid-file'];
+	}
+	
+	public function logException(\Exception $e)
+	{
+		$this->log->error($e->getMessage());
+		$this->log->error($e->getTraceAsString());
 	}
 }

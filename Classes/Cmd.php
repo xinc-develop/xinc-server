@@ -1,12 +1,7 @@
 <?php
 /**
  * Xinc - Continuous Integration.
- * The Xinc Server Commandline
  *
- * PHP version 5
- *
- * @category  Development
- * @package   Xinc.Server
  * @author    David Ellis  <username@example.org>
  * @author    Gavin Foster <username@example.org>
  * @author    Jamie Talbot <username@example.org>
@@ -34,6 +29,9 @@
 
 namespace Xinc\Server;
 
+/**
+ * The Xinc Server Commandline
+ */
 class Cmd
 {
 	public function setupXinc()
@@ -174,7 +172,7 @@ class Cmd
             exit($xinc->run());
         }
         catch (\Exception $e) {
-			$xinc->log('error',$e->getMessage());
+			$xinc->logException($e);
 			exit(1);
 		}
     }
