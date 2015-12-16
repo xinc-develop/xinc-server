@@ -6,8 +6,7 @@
  * PHP version 5
  *
  * @category   Development
- * @package    Xinc.Core
- * @subpackage Exception
+ *
  * @author     Alexander Opitz <opitz.alexander@gmail.com>
  * @copyright  2012 Alexander Opitz, Leipzig
  * @license    http://www.gnu.org/copyleft/lgpl.html GNU/LGPL, see license.php
@@ -25,12 +24,11 @@
  *             You should have received a copy of the GNU Lesser General Public
  *             License along with Xinc, write to the Free Software Foundation,
  *             Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
  * @link       http://code.google.com/p/xinc/
  */
-
 namespace Xinc\Core\Exception;
 
 class PropertiesException extends \Xinc\Core\Exception
 {
-	
 }

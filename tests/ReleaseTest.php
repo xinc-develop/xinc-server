@@ -33,7 +33,7 @@ class ReleaseTest extends BaseTest
 {  
     public function testVersion()
     {
-		$this->assertEquals('3.0.2', (new \Xinc\Server\Xinc)->getVersion(),
+		$this->assertEquals('3.0.3', (new \Xinc\Server\Xinc)->getVersion(),
 		    'Version?');
     }
 
