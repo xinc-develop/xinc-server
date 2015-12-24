@@ -47,7 +47,7 @@ use Xinc\Core\Traits\Config as ConfigTrait;
  */
 class Xinc
 {
-    const VERSION = '3.0.3';
+    const VERSION = '2.5.4';
 
     const DEFAULT_PROJECT_DIR = 'projects';
     const DEFAULT_STATUS_DIR = 'status';

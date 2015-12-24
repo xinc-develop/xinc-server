@@ -1,7 +1,5 @@
 <?php
-/**
- * Test Class for the Xinc Build Properties
- *
+/*
  * @package Xinc.Project
  * @author Arno Schneider
  * @version 2.0
@@ -30,16 +28,19 @@ use Xinc\Core\Project\Status as ProjectStatus;
 use Xinc\Core\Test\BaseTest;
 use \Xinc\Server\Cmd;
 
+/**
+ * Test Class for the Xinc Server Commandline
+ */
 class CmdlineTest extends BaseTest
 {
     public function testDefaults()
     {
     	$cmd = new Cmd();
-	    $xinc = $cmd->setupXinc();
-	    $options = $xinc->getConfig()->getOptions();
+	$xinc = $cmd->setupXinc();
+	$options = $xinc->getConfig()->getOptions();
     	$this->assertArrayNotHasKey('projectfile',$options);
         $this->assertArrayNotHasKey('configfile',$options);
-	    $this->assertArrayNotHasKey('project-file',$options);
+	$this->assertArrayNotHasKey('project-file',$options);
         $this->assertArrayNotHasKey('config-file',$options);
         $this->assertFalse($options['once']);
         $this->assertEquals('./', $options['workingdir']);
@@ -58,7 +59,7 @@ class CmdlineTest extends BaseTest
 	 $xinc = (new Cmd)->setupXinc($args);
     	 $options = $xinc->getConfig()->getOptions();
 
-	    $this->assertEquals('test-config.xml',$options['config-file']);
-	    $this->assertEquals('test-config.xml',$options['configfile']);
-	}
+	 $this->assertEquals('test-config.xml',$options['config-file']);
+	 $this->assertEquals('test-config.xml',$options['configfile']);
+    }
 }
