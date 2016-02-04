@@ -40,4 +40,27 @@ class XincdTest extends BaseTest
         $this->assertEquals(0,$retval);
         $this->assertEquals('Xinc version 2.5.4',$out[0]);
     }
+
+    public function testHelp()
+    {
+        exec($this->getXincd() . " -h",$out,$retval);
+        $this->assertEquals(0,$retval);
+        $expect = [
+                   'Options:',
+                   '  -V, --version           print the version of Xinc',
+                   '  -h, --help              print this help message',
+                   '  -w, --working-dir <arg> the working directory',
+                   '  -o, --once              run once and exit',
+                   '  -v, --verbose [<arg>]   the level of information to log',
+                   '  -p, --project-dir <arg> directory with project configurations',
+                   '  -s, --status-dir <arg>  internal (writable) status directory',
+                   '  -l, --log-file <arg>    the main log file',
+                   '  -i, --pid-file <arg>    place to store the process id',
+                   '  -c, --config-file <arg> the config file to use',
+                   '  -d, --config-dir <arg>  the directory with main configuration(s)'
+                   ];
+        foreach($expect as $line) {
+            $this->assertTrue(in_array($line,$out));
+        }
+    }
 }

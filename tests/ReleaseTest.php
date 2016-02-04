@@ -1,7 +1,7 @@
 <?php
 /**
  * Test Class for the Xinc Build Properties
- * 
+ *
  * @package Xinc.Project
  * @author Arno Schneider
  * @version 2.0
@@ -10,7 +10,7 @@
  *    This file is part of Xinc.
  *    Xinc is free software; you can redistribute it and/or modify
  *    it under the terms of the GNU Lesser General Public License as published
- *    by the Free Software Foundation; either version 2.1 of the License, or    
+ *    by the Free Software Foundation; either version 2.1 of the License, or
  *    (at your option) any later version.
  *
  *    Xinc is distributed in the hope that it will be useful,
@@ -30,10 +30,10 @@ use Xinc\Core\Project\Status as ProjectStatus;
 use Xinc\Core\Test\BaseTest;
 
 class ReleaseTest extends BaseTest
-{  
+{
     public function testVersion()
     {
-		$this->assertEquals('3.0.3', (new \Xinc\Server\Xinc)->getVersion(),
+		$this->assertEquals('2.5.4', (new \Xinc\Server\Xinc)->getVersion(),
 		    'Version?');
     }
 

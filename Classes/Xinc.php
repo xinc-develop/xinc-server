@@ -8,7 +8,7 @@
  * @author    Alexander Opitz <opitz.alexander@gmail.com>
  * @author    Sebastian Knapp <news@young-workers.de>
  * @copyright 2007 David Ellis, One Degree Square
- * @copyright 2015 Xinc Development Team <https://github.com/xinc-develop>
+ * @copyright 2015-2016 Xinc Development Team <https://github.com/xinc-develop>
  * @license   http://www.gnu.org/copyleft/lgpl.html GNU/LGPL, see license.php
  *            This file is part of Xinc.
  *            Xinc is free software; you can redistribute it and/or modify
@@ -47,7 +47,7 @@ use Xinc\Core\Traits\Config as ConfigTrait;
  */
 class Xinc
 {
-    const VERSION = '3.0.3';
+    const VERSION = '2.5.4';
 
     const DEFAULT_PROJECT_DIR = 'projects';
     const DEFAULT_STATUS_DIR = 'status';
