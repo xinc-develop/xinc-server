@@ -60,7 +60,6 @@ class Cmd
    */
     public function setupXinc($args = null)
     {
-        $this->xinc->initialize();
         $options = $this->parseCliOptions($args);
         $this->optionHandler($options);
 

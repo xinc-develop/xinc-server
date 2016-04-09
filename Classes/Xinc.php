@@ -66,7 +66,10 @@ class Xinc
 
     public function __construct()
     {
-        $this->setConfig(new Config());
+        $this->config = new Config();
+        # default Config Loader
+        $this->configLoader = new Xml();
+        $this->registry = new Registry();
     }
 
     public function getConfig()
@@ -79,15 +82,16 @@ class Xinc
       return $this->configLoader;
     }
 
-    public function initialize()
+    protected function initialize()
     {
-        $this->initConfigLoader();
-        $this->initRegistry();
+        $this->initLogger();
+        $this->registry->setLogger($this->log);
+        $this->configLoader->setLogger($this->log);
     }
 
     public function prepare()
     {
-        $this->initLogger();
+		$this->initialize();
         $this->validateOptions();
         $this->applyOptions();
         $this->logVersion();
@@ -143,32 +147,6 @@ class Xinc
         if (isset($this->options['project-file'])) {
         } else {
         }
-    }
-
-    protected function initAttributeOnce($attr, $obj, $construct)
-    {
-        if (empty($this->$attr)) {
-            if ($obj === null) {
-                $this->$attr = $construct();
-                $this->$attr->setLogger($this->log);
-            } else {
-                $this->$attr = $c;
-            }
-        } else {
-            throw new Mistake("A {$attr} was already set.");
-        }
-    }
-
-    public function initConfigLoader(ConfigLoaderInterface $c = null)
-    {
-        $this->initAttributeOnce('configLoader', $c,
-            function () { return new Xml(); });
-    }
-
-    public function initRegistry(XincRegistryInterface $reg = null)
-    {
-        $this->initAttributeOnce('registry', $reg,
-            function () { return new Registry(); });
     }
 
     /**
@@ -293,9 +271,10 @@ class Xinc
      */
     protected function validateOptions()
     {
-        $this->checkDirectory($this->options['workingdir']);
-        $this->checkDirectory($this->options['projectdir']);
-        $this->checkDirectory($this->options['statusdir']);
+		$config = $this->config;
+        $this->checkDirectory($config->get('workingdir'));
+        $this->checkDirectory($config->get('projectdir'));
+        $this->checkDirectory($config->get('statusdir'));
     }
 
     protected function applyOptions()
@@ -348,13 +327,14 @@ class Xinc
     public function logStartupSettings()
     {
         $logger = $this->log;
+        $config = $this->config;
 
         $logger->info('Starting up Xinc');
         $logger->info('- Version:    '.self::VERSION);
-        $logger->info('- Workingdir: '.$this->options['working-dir']);
-        $logger->info('- Projectdir: '.$this->options['project-dir']);
-        $logger->info('- Statusdir:  '.$this->options['status-dir']);
-        $logger->info('- Log Level:  '.$this->options['verbose']);
+        $logger->info('- Workingdir: '.$config->get('working-dir'));
+        $logger->info('- Projectdir: '.$config->get('project-dir'));
+        $logger->info('- Statusdir:  '.$config->get('status-dir'));
+        $logger->info('- Log Level:  '.$config->get('verbose'));
     }
 
     /**
@@ -372,7 +352,7 @@ class Xinc
     {
         $this->log = $logger = new Logger();
         $logger->setLogLevel($this->getConfig()->getOption('verbose'));
-	$logger->setXincLogFile($this->getConfig()->getOption('log-file'));
+        $logger->setXincLogFile($this->getConfig()->getOption('log-file'));
     }
 
     /**
