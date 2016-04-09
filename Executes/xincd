@@ -16,7 +16,7 @@
  * @license  http://www.gnu.org/copyleft/lgpl.html GNU LGPL 3+
  * @link     http://code.google.com/p/xinc/
  */
-echo __DIR__,"\n";
+
 // installed in vendor bin
 if(file_exists(__DIR__ . '/../../../autoload.php')) {
     require_once __DIR__ . '/../../../autoload.php';
