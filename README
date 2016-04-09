@@ -7,4 +7,6 @@ welcome to support further development. The next planed development step is
 to port the working 2.2 tree to a modern, easy to install code base.
 
 Alternatives written in PHP:
-  * https://github.com/FriendsOfPHP/Sismo
+  * https://github.com/Block8/PHPCI - a professional CI used phptesting.org 
+  * https://github.com/FriendsOfPHP/Sismo - small and simple CI solution
+  * https://github.com/Cron/Cron - a PHP cron scheduler

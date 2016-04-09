@@ -1,14 +1,14 @@
 <?php
-/**
+/*
  * Xinc - Continuous Integration.
  *
- * @author    David Ellis  <username@example.org>
- * @author    Gavin Foster <username@example.org>
- * @author    Jamie Talbot <username@example.org>
+ * @author    David Ellis
+ * @author    Gavin Foster
+ * @author    Jamie Talbot
  * @author    Alexander Opitz <opitz.alexander@gmail.com>
  * @author    Sebastian Knapp <news@young-workers.de>
  * @copyright 2007 David Ellis, One Degree Square
- * @copyright 2015 Xinc Development Team <https://github.com/xinc-develop>
+ * @copyright 2015-2016 Xinc Development Team <https://github.com/xinc-develop>
  * @license   http://www.gnu.org/copyleft/lgpl.html GNU/LGPL, see license.php
  *            This file is part of Xinc.
  *            Xinc is free software; you can redistribute it and/or modify
@@ -37,16 +37,22 @@ use Xinc\Getopt\Option;
  */
 class Cmd
 {
+    /**
+     * @var Xinc::Server::Xinc instance
+     */
   private $xinc;
 
+  /**
+   * @var Xinc::Getopt::Getopt
+   */
+  private $getopt;
+
+  /**
+   * Konstruktor
+   */
   public function __construct()
   {
-    $this->xinc = new Xinc();
-  }
-
-  public function getXinc()
-  {
-    return $this->xinc();
+      $this->xinc = new Xinc();
   }
 
   /**
@@ -56,6 +62,8 @@ class Cmd
     {
         $this->xinc->initialize();
         $options = $this->parseCliOptions($args);
+        $this->optionHandler($options);
+
         $this->xinc->getConfig()->setOptions($options);
         return $this->xinc;
     }
@@ -83,9 +91,12 @@ class Cmd
         */
     }
 
+    /**
+     * Initialize a Xinc::Getopt::Getopt object
+     */
     public function setupGetopt()
     {
-      $getopt = new Getopt();
+      $getopt = $this->getopt = new Getopt();
       $getopt->addOptions($this->getCommandlineOptions());
       $getopt->addOptions($this->xinc->getCommandlineOptions());
       $loader = $this->xinc->getConfigLoader();
@@ -104,7 +115,21 @@ class Cmd
     {
       $options['version'] = new Option('V','version',Getopt::NO_ARGUMENT);
       $options['version']->setDescription('print the version of Xinc');
+      $options['help'] = new Option('h','help',Getopt::NO_ARGUMENT);
+      $options['help']->setDescription("print this help message");
       return $options;
+    }
+
+    public function optionHandler($options)
+    {
+        if(isset($options['version'])) {
+            $this->printVersion();
+            exit(0);
+        }
+        if(isset($options['help'])) {
+            $this->printHelp();
+            exit(0);
+        }
     }
 
     /**
@@ -119,7 +144,7 @@ class Cmd
     }
 
     /**
-     * Static main function to run Xinc is not cruise control.
+     * Static main function to run Xinc continuous integration service
      */
     public static function execute()
     {
@@ -145,5 +170,12 @@ class Cmd
     public static function printVersion()
     {
         echo 'Xinc version '.(new Xinc())->getVersion()."\n";
+    }
+    /**
+     * Prints a help message
+     */
+    public function printHelp()
+    {
+         echo $this->getopt->getHelpText();
     }
 }
