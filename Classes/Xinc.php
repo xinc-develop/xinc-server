@@ -41,6 +41,7 @@ use Xinc\Core\Registry\Registry;
 use Xinc\Core\Exception\Mistake;
 use Xinc\Core\Traits\Logger as LoggerTrait;
 use Xinc\Core\Traits\Config as ConfigTrait;
+use Xinc\Core\Project\Config\Xml as ProjectXml;
 
 /**
  * The main control class.
@@ -70,6 +71,7 @@ class Xinc
         # default Config Loader
         $this->configLoader = new Xml();
         $this->registry = new Registry();
+        $this->registry->setConfig($this->config);
     }
 
     public function getConfig()
@@ -132,7 +134,10 @@ class Xinc
       $options['logfile']->setDefaultValue("$wd".'xinc.log');
       $options['pidfile'] = new Option('i','pid-file',Getopt::REQUIRED_ARGUMENT);
       $options['pidfile']->setDescription('place to store the process id');
-      $options['pidfile']->setDefaultValue("$wd".'.xinc.pid');
+      $options['pidfile']->setDefaultValue("$wd".Xinc::DEFAULT_STATUS_DIR."/".'.xinc.pid');
+      $options['heartbeat'] = new Option(null,'heartbeat',Getopt::REQUIRED_ARGUMENT);
+      $options['heartbeat']->setDescription('Interval in which build queue is checked (in seconds)');
+      $options['heartbeat']->setDefaultValue(30);
       return $options;
     }
 
@@ -143,79 +148,16 @@ class Xinc
 
     private function loadProjects()
     {
-        $pd = $this->options['project-dir'];
-        if (isset($this->options['project-file'])) {
-        } else {
-        }
-    }
-
-    /**
-     * Add a projectfile to the xinc processing.
-     *
-     * @param string $fileName
-     */
-    private function addProjectFile($fileName)
-    {
-        try {
-            $config = new Xinc_Project_Config($fileName);
-            $engineName = $config->getEngineName();
-
-            $engine = Xinc_Engine_Repository::getInstance()->getEngine($engineName);
-
-            $builds = $engine->parseProjects($config->getProjects());
-
-            self::$_buildQueue->addBuilds($builds);
-        } catch (Xinc_Project_Config_Exception_FileNotFound $notFound) {
-            Xinc_Logger::getInstance()->error('Project Config File '.$fileName.' cannot be found');
-        } catch (Xinc_Project_Config_Exception_InvalidEntry $invalid) {
-            Xinc_Logger::getInstance()->error('Project Config File has an invalid entry: '.$invalid->getMessage());
-        } catch (Xinc_Engine_Exception_NotFound $engineNotFound) {
-            Xinc_Logger::getInstance()->error('Project Config File references an unknown Engine: '
-                                             .$engineNotFound->getMessage());
-        }
+		$pro = new ProjectXml();
+        $pro->setLogger($this->log);
+        $pro->load($this->config, $this->registry);
     }
 
     public function run()
     {
         try {
-            $this->prepare();
             $this->loadConfig();
             $this->loadProjects();
-
-            // get the project config files
-            if (isset($arguments['projectFiles'])) {
-                /*
-                 * pre-process projectFiles
-                 */
-                $merge = array();
-                for ($i = 0; $i < count($arguments['projectFiles']); ++$i) {
-                    $projectFile = $arguments['projectFiles'][$i];
-                    if (!file_exists($projectFile) && strstr($projectFile, '*')) {
-                        // we are probably under windows and the command line does not
-                        // autoexpand *.xml
-                        $array = glob($projectFile);
-                        /*
-                         * get rid of the not expanded file
-                         */
-                        unset($arguments['projectFiles'][$i]);
-                        /*
-                         * merge the glob'ed files
-                         */
-                        $merge = array_merge($merge, $array);
-                    } else {
-                        $arguments['projectFiles'][$i] = realpath($projectFile);
-                    }
-                }
-                /*
-                 * merge all the autoglobbed files with the original ones
-                 */
-                $arguments['projectFiles'] = array_merge($arguments['projectFiles'], $merge);
-
-                foreach ($arguments['projectFiles'] as $projectFile) {
-                    $logger->info('Loading Project-File: '.$projectFile);
-                    self::$_instance->_addProjectFile($projectFile);
-                }
-            }
             $this->start();
         } catch (Xinc_Build_Status_Exception_NoDirectory $statusNoDir) {
             $logger->error(
@@ -236,7 +178,7 @@ class Xinc
             );
         } catch (Exception $e) {
             // we need to catch everything here
-            $logger->error(
+            $this->log->error(
                 'Xinc stopped due to an uncaught exception: '
                 .$e->getMessage().' in File : '.$e->getFile().' on line '
                 .$e->getLine().$e->getTraceAsString(),
@@ -252,15 +194,60 @@ class Xinc
      */
     protected function start()
     {
-        if (!$this->options['once']) {
+        if (!$this->config->get('once')) {
             $res = register_tick_function(array($this, 'checkShutdown'));
-            $this->log->info('Registering shutdown function: '.($res ? 'OK' : 'NOK'));
+            $this->log->info('Registering shutdown function: '.
+                ($res ? 'OK' : 'NOT OK'));
             $this->processBuildsDaemon();
         } else {
             $this->log->info('Run-once mode '
                                             .'(project interval is negative)');
             //Xinc_Logger::getInstance()->flush();
             $this->processBuildsRunOnce();
+        }
+    }
+    
+    /**
+     * Processes the projects that have been configured 
+     * in the config-file and executes each project
+     * if the scheduled time has expired
+     */
+    public function processBuildsDaemon()
+    {
+		$pidfile = $this->getPidFile();
+        if (file_exists($pidfile)) {
+            $oldPid = file_get_contents($pidfile);
+            if ($this->_isProcessRunning($oldPid)) {
+                $this->log->error('Xinc Instance with PID '.$pid.' still running. Check pidfile '.$this->_pidFile.'. Shutting down.');
+                exit(-1);
+            } else {
+                $this->log->warn('Cleaning up old pidFile.');
+            }
+        }
+        file_put_contents($pidfile, getmypid());
+        while (true) {
+            declare(ticks=2);
+            $now = time();
+            $nextBuildTime = $this->buildQueue->getNextBuildTime();
+            
+            if ($nextBuildTime !== null) {
+				$this->log->info('Next buildtime: ' . date('Y-m-d H:i:s', $nextBuildTime));
+                $sleep = $nextBuildTime - $now;
+            } else {
+                $sleep = $this->config->get('heartbeat');
+            }
+            if ($sleep > 0) {
+                $this->buildActive=false;
+                $this->log->info('Sleeping: ' . $sleep . ' seconds');
+                $start = time() + microtime(true);
+                while(((time()+microtime(true)) - $start)<=$sleep) {
+                    usleep(10000);
+                }
+            }
+            while (($nextBuild = $this->buildQueue->getNextBuild()) !== null) {
+                $this->buildActive=true;
+                $nextBuild->build();
+            }
         }
     }
 
@@ -336,6 +323,7 @@ class Xinc
         $logger->info('- Projectdir: '.$config->get('project-dir'));
         $logger->info('- Statusdir:  '.$config->get('status-dir'));
         $logger->info('- Log Level:  '.$config->get('verbose'));
+        $logger->info('- Pid File:   '.$config->get('pid-file'));
     }
 
     /**
@@ -372,7 +360,7 @@ class Xinc
      */
     public function checkShutdown()
     {
-        $file = $this->shutdownFlag();
+        $file = $this->getShutdownFlag();
         if (file_exists($file) && $this->buildActive == false) {
             $this->log->info('Preparing to shutdown');
             $statInfo = stat($file);
@@ -412,12 +400,12 @@ class Xinc
 
     private function getShutdownFlag()
     {
-        return $this->options['status-dir'].DIRECTORY_SEPARATOR.'.shutdown';
+        return $this->config->get('status-dir').DIRECTORY_SEPARATOR.'.shutdown';
     }
 
     protected function getPidFile()
     {
-        return $this->options['pid-file'];
+        return $this->config->get('pid-file');
     }
 
     public function logException(\Exception $e)
@@ -425,4 +413,26 @@ class Xinc
         $this->log->error($e->getMessage());
         $this->log->error($e->getTraceAsString());
     }
+    
+    private function _isProcessRunning($pid)
+    {
+        if (isset($_SERVER['SystemRoot']) && DIRECTORY_SEPARATOR != '/') {
+            /**
+             * winserv is handling that
+             */
+            return false;
+        } else {
+            exec('ps --no-heading -p ' . $pid, $out, $res);
+            if ($res!=0) {
+                return false;
+            } else {
+                if (count($out)>0) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
+    }
+
 }
