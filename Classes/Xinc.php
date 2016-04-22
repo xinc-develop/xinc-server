@@ -25,7 +25,7 @@
  *            License along with Xinc, write to the Free Software Foundation,
  *            Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
- * @link      http://code.google.com/p/xinc/
+ * @homepage  http://xinc-develop.github.io/
  */
 namespace Xinc\Server;
 
@@ -332,6 +332,7 @@ class Xinc
         $logger->info('Starting up Xinc');
         $logger->info('- Version:    '.self::VERSION);
         $logger->info('- Workingdir: '.$config->get('working-dir'));
+        $logger->info('- Configdir:  '.$config->get('config-dir'));
         $logger->info('- Projectdir: '.$config->get('project-dir'));
         $logger->info('- Statusdir:  '.$config->get('status-dir'));
         $logger->info('- Log Level:  '.$config->get('verbose'));
