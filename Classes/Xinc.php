@@ -69,7 +69,7 @@ class Xinc
     {
         $this->config = new Config();
         # default Config Loader
-        $this->configLoader = new Xml();
+        $this->setConfigLoader( new Xml() );
         $this->registry = new Registry();
         $this->registry->setConfig($this->config);
     }
@@ -84,6 +84,11 @@ class Xinc
       return $this->configLoader;
     }
 
+    public function setConfigLoader(ConfigLoaderInterface $loader)
+    {
+        $this->configLoader = $loader;
+    }
+
     protected function initialize()
     {
         $this->initLogger();
@@ -93,7 +98,7 @@ class Xinc
 
     public function prepare()
     {
-		$this->initialize();
+        $this->initialize();
         $this->validateOptions();
         $this->applyOptions();
         $this->logVersion();
@@ -148,7 +153,7 @@ class Xinc
 
     private function loadProjects()
     {
-		$pro = new ProjectXml();
+        $pro = new ProjectXml();
         $pro->setLogger($this->log);
         $pro->load($this->config, $this->registry);
     }
@@ -206,15 +211,15 @@ class Xinc
             $this->processBuildsRunOnce();
         }
     }
-    
+
     /**
-     * Processes the projects that have been configured 
+     * Processes the projects that have been configured
      * in the config-file and executes each project
      * if the scheduled time has expired
      */
     public function processBuildsDaemon()
     {
-		$pidfile = $this->getPidFile();
+        $pidfile = $this->getPidFile();
         if (file_exists($pidfile)) {
             $oldPid = file_get_contents($pidfile);
             if ($this->_isProcessRunning($oldPid)) {
@@ -229,9 +234,9 @@ class Xinc
             declare(ticks=2);
             $now = time();
             $nextBuildTime = $this->buildQueue->getNextBuildTime();
-            
+
             if ($nextBuildTime !== null) {
-				$this->log->info('Next buildtime: ' . date('Y-m-d H:i:s', $nextBuildTime));
+                $this->log->info('Next buildtime: ' . date('Y-m-d H:i:s', $nextBuildTime));
                 $sleep = $nextBuildTime - $now;
             } else {
                 $sleep = $this->config->get('heartbeat');
@@ -258,7 +263,7 @@ class Xinc
      */
     protected function validateOptions()
     {
-		$config = $this->config;
+        $config = $this->config;
         $this->checkDirectory($config->get('workingdir'));
         $this->checkDirectory($config->get('projectdir'));
         $this->checkDirectory($config->get('statusdir'));
@@ -413,7 +418,7 @@ class Xinc
         $this->log->error($e->getMessage());
         $this->log->error($e->getTraceAsString());
     }
-    
+
     private function _isProcessRunning($pid)
     {
         if (isset($_SERVER['SystemRoot']) && DIRECTORY_SEPARATOR != '/') {
