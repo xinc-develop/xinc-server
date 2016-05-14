@@ -242,7 +242,9 @@ class Xinc
         if (file_exists($pidfile)) {
             $oldPid = file_get_contents($pidfile);
             if ($this->_isProcessRunning($oldPid)) {
-                $this->log->error('Xinc Instance with PID '.$pid.' still running. Check pidfile '.$this->_pidFile.'. Shutting down.');
+                $this->log->error('Xinc Instance with PID ' . $oldPid .
+                    ' still running. Check pidfile ' . $pidfile . ".\n" .
+                    'Shutting down.');
                 exit(-1);
             } else {
                 $this->log->warn('Cleaning up old pidFile.');
