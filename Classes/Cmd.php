@@ -63,9 +63,7 @@ class Cmd
     {
         $options = $this->parseCliOptions($args);
         $this->optionHandler($options);
-
-        $this->xinc->getConfig()->setOptions($options);
-
+        $this->xinc->setCommandlineOptions($options);
         return $this->xinc;
     }
 
@@ -102,13 +100,13 @@ class Cmd
         $getopt->addOptions($this->xinc->getCommandlineOptions());
         $loader = $this->xinc->getConfigLoader();
         $getopt->addOptions($loader->getCommandlineOptions());
-      // add more defaults
-      $options = $getopt->getOptionObjects();
+        // add more defaults
+        $options = $getopt->getOptionObjects();
         $base = $options['working-dir']->getDefaultValue();
         $options['config-dir']->setDefaultValue("{$base}etc/xinc/");
         $options['project-dir']->setDefaultValue(
-          $options['config-dir']->getDefaultValue().Xinc::DEFAULT_PROJECT_DIR.'/'
-      );
+            $options['config-dir']->getDefaultValue().Xinc::DEFAULT_PROJECT_DIR.'/'
+        );
 
         return $getopt;
     }

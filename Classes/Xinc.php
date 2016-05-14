@@ -79,6 +79,18 @@ class Xinc
         return $this->config;
     }
 
+    public function setCommandlineOptions($options)
+    {
+        foreach($options as $name => $val) {
+            if($val->getIsDefault()) {
+                $this->config->setSetting($name,$val->getValue());
+            }
+            else {
+                $this->config->setOption($name,$val->getValue());
+            }
+        }
+    }
+
     public function getConfigLoader()
     {
       return $this->configLoader;
@@ -151,6 +163,14 @@ class Xinc
         $this->configLoader->load($this->config, $this->registry);
     }
 
+    private function applyConfig()
+    {
+        $conf = $this->config;
+        if($conf->hasSetting('verbose')) {
+            $this->log->setLogLevel($conf->get('verbose'));
+        }
+    }
+
     private function loadProjects()
     {
         $pro = new ProjectXml();
@@ -162,6 +182,7 @@ class Xinc
     {
         try {
             $this->loadConfig();
+            $this->applyConfig();
             $this->loadProjects();
             $this->start();
         } catch (Xinc_Build_Status_Exception_NoDirectory $statusNoDir) {
@@ -205,9 +226,7 @@ class Xinc
                 ($res ? 'OK' : 'NOT OK'));
             $this->processBuildsDaemon();
         } else {
-            $this->log->info('Run-once mode '
-                                            .'(project interval is negative)');
-            //Xinc_Logger::getInstance()->flush();
+            $this->log->info('Run-once mode.');
             $this->processBuildsRunOnce();
         }
     }
@@ -345,8 +364,8 @@ class Xinc
     public function initLogger()
     {
         $this->log = $logger = new Logger();
-        $logger->setLogLevel($this->getConfig()->getOption('verbose'));
-        $logger->setXincLogFile($this->getConfig()->getOption('log-file'));
+        $logger->setLogLevel($this->getConfig()->get('verbose'));
+        $logger->setXincLogFile($this->getConfig()->get('log-file'));
     }
 
     /**
