@@ -34,22 +34,23 @@ class CmdlineTest extends BaseTest
 {
     public function testDefaults()
     {
-    	$cmd = new Cmd();
+        $cmd = new Cmd();
         $xinc = $cmd->setupXinc();
-        $options = $xinc->getConfig()->getOptions();
-    	$this->assertArrayNotHasKey('projectfile',$options);
-        $this->assertArrayNotHasKey('configfile',$options);
-        $this->assertArrayNotHasKey('project-file',$options);
-        $this->assertArrayNotHasKey('config-file',$options);
-        $this->assertFalse($options['once']);
-        $this->assertEquals('./', $options['workingdir']);
+        $conf = $xinc->getConfig();
+        $this->assertFalse($conf->has('projectfile'));
+        $this->assertFalse($conf->has('configfile'));
+        $this->assertFalse($conf->has('project-file'));
+        $this->assertFalse($conf->has('config-file'));
 
-        $this->assertEquals('./etc/xinc/',$options['configdir']);
-        $this->assertEquals('./etc/xinc/projects/',$options['projectdir']);
-        $this->assertEquals('./status/',$options['statusdir']);
-        $this->assertEquals('./xinc.log',$options['logfile']);
-        $this->assertEquals('./.xinc.pid',$options['pidfile']);
-        $this->assertEquals(2,$options['verbose']);
+        $this->assertFalse($conf->get('once'));
+        $this->assertEquals('./', $conf->get('workingdir'));
+
+        $this->assertEquals('./etc/xinc/', $conf->get('configdir'));
+        $this->assertEquals('./etc/xinc/projects/', $conf->get('projectdir'));
+        $this->assertEquals('./status/', $conf->get('statusdir'));
+        $this->assertEquals('./xinc.log', $conf->get('logfile'));
+        $this->assertEquals('./status/.xinc.pid', $conf->get('pidfile'));
+        $this->assertEquals(2, $conf->get('verbose'));
     }
 
     public function testConfigFile()
@@ -58,7 +59,7 @@ class CmdlineTest extends BaseTest
         $xinc = (new Cmd)->setupXinc($args);
         $options = $xinc->getConfig()->getOptions();
 
-	 $this->assertEquals('test-config.xml',$options['config-file']);
-	 $this->assertEquals('test-config.xml',$options['configfile']);
+     $this->assertEquals('test-config.xml',$options['config-file']);
+     $this->assertEquals('test-config.xml',$options['configfile']);
     }
 }
