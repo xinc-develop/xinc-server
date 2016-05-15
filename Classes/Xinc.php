@@ -115,7 +115,6 @@ class Xinc
         $this->applyOptions();
         $this->logVersion();
         $this->logStartupSettings();
-        $this->buildQueue = new BuildQueue();
     }
 
     /**
@@ -178,30 +177,26 @@ class Xinc
         $pro->load($this->config, $this->registry);
     }
 
+    protected function setupBuildQueue()
+    {
+        $this->buildQueue = new BuildQueue();
+        $this->buildQueue->setLogger($this->log);
+        $projects = $this->registry->getProjectIterator();
+        foreach($projects as $project) {
+            $engine = $this->registry->getEngine($project->getEngineName());
+            $build = $engine->setupBuild($project);
+            $this->buildQueue->addBuild($build);
+        }
+    }
+
     public function run()
     {
         try {
             $this->loadConfig();
             $this->applyConfig();
             $this->loadProjects();
+            $this->setupBuildQueue();
             $this->start();
-        } catch (Xinc_Build_Status_Exception_NoDirectory $statusNoDir) {
-            $logger->error(
-                'Xinc stopped: '.'Status Dir: "'
-                .$statusNoDir->getDirectory().'" is not a directory',
-                STDERR
-            );
-        } catch (Xinc_Exception_IO $ioException) {
-            $logger->error(
-                'Xinc stopped: '.$ioException->getMessage(),
-                STDERR
-            );
-        } catch (Xinc_Config_Exception_FileNotFound $configFileNotFound) {
-            $logger->error(
-                'Xinc stopped: '.'Config File "'
-                .$configFileNotFound->getFileName().'" not found',
-                STDERR
-            );
         } catch (Exception $e) {
             // we need to catch everything here
             $this->log->error(
@@ -251,6 +246,9 @@ class Xinc
             }
         }
         file_put_contents($pidfile, getmypid());
+
+        $this->log->verbose('Start main loop.');
+
         while (true) {
             declare(ticks=2);
             $now = time();

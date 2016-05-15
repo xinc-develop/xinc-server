@@ -1,5 +1,5 @@
 <?php
-/**
+/*
  * Xinc - Continuous Integration.
  * First Xinc Engine running on XML
  *
@@ -24,7 +24,7 @@
  *            You should have received a copy of the GNU Lesser General Public
  *            License along with Xinc, write to the Free Software Foundation,
  *            Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
- * 
+ *
  * @homepage  http://xinc-develop.github.io/
  */
 namespace Xinc\Server\Engine;
@@ -34,6 +34,7 @@ use Xinc\Core\Engine\Base;
 use Xinc\Core\Build\Build;
 use Xinc\Core\Build\BuildInterface;
 use Xinc\Core\Project\Project;
+use Xinc\Core\Task\Slot;
 
 /**
  * The Sunrise engine
@@ -41,25 +42,7 @@ use Xinc\Core\Project\Project;
 class Sunrise extends Base implements EngineInterface
 {
     const NAME = 'Sunrise';
-    
-    private $_heartBeat;
 
-    /**
-     * The current build
-     *
-     * @var Xinc_Build_Interface
-     */
-    public $build;
-    
-    /**
-     * constructor, registering a shutdown function
-     *
-     */
-    public function __construct()
-    {
-        register_shutdown_function(array(&$this, 'shutdown'));
-    }
-    
     /**
      * get the name of this engine
      *
@@ -69,27 +52,14 @@ class Sunrise extends Base implements EngineInterface
     {
         return self::NAME;
     }
-    
-    /**
-     * serializes the build before shutting down
-     *
-     * @throws Xinc_Build_Exception_NotRun
-     * @throws Xinc_Build_Exception_Serialization
-     * @throws Xinc_Build_History_Exception_Storage
-     */
-    public function shutdown()
+
+    protected function endBuild(BuildInterface $build)
     {
-        if ($this->build != null) {
-            $this->_serializeBuild($this->build);
-        }
+        $project = $build->getProject()->getName();
+        $status = $build->getStatusString();
+        $this->log->info("END BUILDING PROJECT {$project} WITH STATUS $status.");
     }
 
-    private function _endBuild()
-    {
-        $this->build = null;
-        Xinc::getInstance()->restoreConfigDirectives();
-    }
-    
     /**
      * Serializes a build an catches the exceptions
      *
@@ -109,11 +79,11 @@ class Sunrise extends Base implements EngineInterface
             $build->error('Unknown error occured while serializing the build.');
         }
     }
-    
-    
+
+
     /**
      * Setup a project for the engine and setup a build object from
-     * project configuration. 
+     * project configuration.
      *
      * @param Xinc::Core::Project::Project $project A project inside this engine.
      *
@@ -143,46 +113,43 @@ class Sunrise extends Base implements EngineInterface
         $build->setBuildTime($buildTime);
         $build->init();
         if ( BuildInterface::STOPPED === $build->getStatus() ) {
-            return $this->_endBuild();
+            return $this->endBuild($build);
         }
         /**
          * Increasing the build number, if it fails we need to decrease again
          */
-        if ($build->getLastBuild()->getStatus() === Xinc_Build_Interface::PASSED 
+        if ($build->getLastBuild()->getStatus() === BuildInterface::PASSED
             ||
             ($build->getLastBuild()->getStatus() === null &&
-             $build->getLastBuild()->getStatus() !== Xinc_Build_Interface::STOPPED)) {
+             $build->getLastBuild()->getStatus() !== BuildInterface::STOPPED)) {
             $build->setNumber($build->getNumber()+1);
             //$this->updateBuildTasks($build);
         }
         $build->updateTasks();
-        $build->process(Xinc_Plugin_Slot::INIT_PROCESS);
-        
-        if ( Xinc_Build_Interface::STOPPED === $build->getStatus() ) {
-            Xinc_Logger::getInstance()->info('Build of Project stopped'
-                                             . ' in INIT phase');
+        $build->process(Slot::INIT_PROCESS);
+
+        if ( BuildInterface::STOPPED === $build->getStatus() ) {
+            $this->log->info('Build of Project stopped in INIT phase');
             $build->setLastBuild();
-            return $this->_endBuild();
+            return $this->endBuild($build);
         }
-        
-        Xinc_Logger::getInstance()->info("CHECKING PROJECT " 
-                                        . $build->getProject()->getName());
-        $build->process(Xinc_Plugin_Slot::PRE_PROCESS);
-        if ( Xinc_Build_Interface::STOPPED === $build->getStatus() ) {
-            $build->info("Build of Project stopped, "
-                                             . "no build necessary");
-            $build->setStatus(Xinc_Build_Interface::INITIALIZED);
+
+        $this->log->info("CHECKING PROJECT {$build->getProject()->getName()}");
+        $build->process(Slot::PRE_PROCESS);
+        if ( BuildInterface::STOPPED === $build->getStatus() ) {
+            $this->log->info("Build of Project stopped, no build necessary");
+            $build->setStatus(BuildInterface::INITIALIZED);
             $build->setLastBuild();
-            return $this->_endBuild();
-        } else if ( Xinc_Build_Interface::FAILED === $build->getStatus() ) {
+            return $this->endBuild($build);
+        } else if ( BuildInterface::FAILED === $build->getStatus() ) {
             //$build->setBuildTime($buildTime);
             $build->updateTasks();
-            $build->error("Build failed");
+            $this->log->error("Build failed");
             /**
              * Process failed in the pre-process phase, we need
              * to run post-process to maybe inform about the failed build
              */
-            $build->process(Xinc_Plugin_Slot::POST_PROCESS);
+            $build->process(Slot::POST_PROCESS);
             /**
              * Issue 79, we need to serialize the build after failure in preprocess
              */
@@ -191,35 +158,34 @@ class Sunrise extends Base implements EngineInterface
              */
             $endTime = time() + microtime(true);
             $build->getStatistics()->set('build.duration', $endTime - $startTime);
-            
-            $this->_serializeBuild($build);
-            return $this->_endBuild();
-            
-        } else if ( Xinc_Build_Interface::PASSED === $build->getStatus() ) {
 
-            $build->info("Code not up to date, "
-                                            . "building project");
+            $this->_serializeBuild($build);
+            return $this->endBuild($build);
+
+        } else if ( BuildInterface::PASSED === $build->getStatus() ) {
+
+            $this->log->info("Code not up to date, building project");
             //$build->setBuildTime($buildTime);
-            
-            
-            
+
+
+
             $build->updateTasks();
-            
-            
-            $build->process(Xinc_Plugin_Slot::PROCESS);
-            if ( Xinc_Build_Interface::PASSED == $build->getStatus() ) {
-                
+
+
+            $build->process(Slot::PROCESS);
+            if ( BuildInterface::PASSED == $build->getStatus() ) {
+
                 $build->updateTasks();
-                $build->info("BUILD PASSED");
+                $this->log->info("BUILD PASSED");
             } else if ( Xinc_Build_Interface::STOPPED == $build->getStatus() ) {
                 //$build->setNumber($build->getNumber()-1);
                 $build->updateTasks();
                 $build->warn("BUILD STOPPED");
-            } else if (Xinc_Build_Interface::FAILED == $build->getStatus() ) {
+            } else if (BuildInterface::FAILED == $build->getStatus() ) {
                 //if ($build->getLastBuild()->getStatus() == Xinc_Build_Interface::PASSED) {
                 //    $build->setNumber($build->getNumber()+1);
                 //}
-                
+
                 $build->updateTasks();
                 $build->error("BUILD FAILED");
             }
@@ -228,66 +194,31 @@ class Sunrise extends Base implements EngineInterface
             /**
              * Post-Process is run on Successful and Failed Builds
              */
-            $build->process(Xinc_Plugin_Slot::POST_PROCESS);
-            
+            $build->process(Slot::POST_PROCESS);
+
             /**
              * set the "time it took to build" on the build
              */
             $endTime = time() + microtime(true);
             $build->getStatistics()->set('build.duration', $endTime - $startTime);
-            
-            
+
+
             $this->_serializeBuild($build);
-            
-            return $this->_endBuild();
-            
-        } else if ( Xinc_Build_Interface::INITIALIZED === $build->getStatus() ) {
+
+            return $this->endBuild($build);
+
+        } else if ( BuildInterface::INITIALIZED === $build->getStatus() ) {
             //$build->setBuildTime($buildTime);
             if ($build->getLastBuild()->getStatus() === null) {
                 $build->setNumber($build->getNumber()-1);
             }
-            $build->setStatus(Xinc_Build_Interface::STOPPED);
+            $build->setStatus(BuildInterface::STOPPED);
             $this->_serializeBuild($build);
-            return $this->_endBuild();
+            return $this->endBuild($build);
         } else {
-            $build->setStatus(Xinc_Build_Interface::STOPPED);
+            $build->setStatus(BuildInterface::STOPPED);
             $build->setLastBuild();
-            return $this->_endBuild();
+            return $this->endBuild($build);
         }
-    }
-    
-    /**
-     * returns the interval in seconds in which
-     * the engine checks for new builds
-     *
-     * @return integer
-     */
-    public function getHeartBeat()
-    {
-        return $this->_heartBeat;
-    }
-    
-    /**
-     * Set the interal in which the engine checks
-     * for modified builds, necessary builds etc
-     *
-     * 
-     * see <xinc engine="name" heartbeat="10"/>
-     * 
-     * @param unknown_type $seconds
-     */
-    public function setHeartBeat($seconds)
-    {
-        $this->_heartBeat = $seconds;
-    }
-    
-    /**
-     * Validate if the engine can run properly on this system
-     *
-     * @return boolean Returns always true.
-     */
-    public function validate()
-    {
-        return true;
     }
 }
