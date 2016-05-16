@@ -39,9 +39,14 @@ use Xinc\Core\Task\Slot;
 /**
  * The Sunrise engine
  */
-class Sunrise extends Base implements EngineInterface
+class Sunrise extends Base
 {
     const NAME = 'Sunrise';
+
+    /**
+     * @var Xinc::Server::Engine::Sunrise::History
+     */
+    protected $history;
 
     /**
      * get the name of this engine
@@ -53,17 +58,10 @@ class Sunrise extends Base implements EngineInterface
         return self::NAME;
     }
 
-    protected function endBuild(BuildInterface $build)
-    {
-        $project = $build->getProject()->getName();
-        $status = $build->getStatusString();
-        $this->log->info("END BUILDING PROJECT {$project} WITH STATUS $status.");
-    }
-
     /**
-     * Serializes a build an catches the exceptions
+     * Serializes a build and catches the exceptions
      *
-     * @param Xinc_Build_Interface $build
+     * @param Xinc::Core::Build::BuildInterface $build
      */
     protected function _serializeBuild(BuildInterface $build)
     {
@@ -80,7 +78,6 @@ class Sunrise extends Base implements EngineInterface
         }
     }
 
-
     /**
      * Setup a project for the engine and setup a build object from
      * project configuration.
@@ -92,7 +89,6 @@ class Sunrise extends Base implements EngineInterface
     public function setupBuild(Project $project)
     {
         $build = new Build($this, $project);
-        $build->setLogger($this->log);
         $build->setNumber(1);
         $this->setupBuildProperties($build);
         $this->setupConfigProperties($build);
@@ -107,12 +103,12 @@ class Sunrise extends Base implements EngineInterface
      */
     public function build(BuildInterface $build)
     {
-        $this->build = $build;
+
         $buildTime = time();
         $startTime = time() + microtime(true);
         $build->setBuildTime($buildTime);
-        $build->init();
-        if ( BuildInterface::STOPPED === $build->getStatus() ) {
+
+        if ( !$this->initBuild($build) ) {
             return $this->endBuild($build);
         }
         /**
@@ -128,20 +124,21 @@ class Sunrise extends Base implements EngineInterface
         $build->updateTasks();
         $build->process(Slot::INIT_PROCESS);
 
-        if ( BuildInterface::STOPPED === $build->getStatus() ) {
+        if ( $build->isFinished() ) {
             $this->log->info('Build of Project stopped in INIT phase');
             $build->setLastBuild();
             return $this->endBuild($build);
         }
 
-        $this->log->info("CHECKING PROJECT {$build->getProject()->getName()}");
+        $build->info("CHECKING PROJECT");
         $build->process(Slot::PRE_PROCESS);
-        if ( BuildInterface::STOPPED === $build->getStatus() ) {
+        if ( $build->isFinished() ) {
             $this->log->info("Build of Project stopped, no build necessary");
             $build->setStatus(BuildInterface::INITIALIZED);
             $build->setLastBuild();
             return $this->endBuild($build);
-        } else if ( BuildInterface::FAILED === $build->getStatus() ) {
+        }
+        else if ( BuildInterface::FAILED === $build->getStatus() ) {
             //$build->setBuildTime($buildTime);
             $build->updateTasks();
             $this->log->error("Build failed");
@@ -166,9 +163,6 @@ class Sunrise extends Base implements EngineInterface
 
             $this->log->info("Code not up to date, building project");
             //$build->setBuildTime($buildTime);
-
-
-
             $build->updateTasks();
 
 
@@ -221,4 +215,59 @@ class Sunrise extends Base implements EngineInterface
             return $this->endBuild($build);
         }
     }
+
+    /**
+     * Unserialize a build by its project and buildtimestamp
+     *
+     * @param Xinc_Project $project
+     * @param integer $buildTimestamp
+     *
+     * @return Xinc::Core::Build::Build
+     * @throws Xinc_Build_Exception_Unserialization
+     * @throws Xinc_Build_Exception_NotFound
+     */
+    protected function unserialize(Project $project, $buildTimestamp = null)
+    {
+        if ($buildTimestamp === null) {
+            $fileName = Xinc_Build_History::getLastBuildFile($project);
+        }
+        else {
+
+            /**
+             * @throws Xinc_Build_Exception_NotFound
+             */
+            $fileName = Xinc_Build_History::getBuildFile($project, $buildTimestamp);
+        }
+
+        //Xinc_Build_Repository::getBuild($project, $buildTimestamp);
+        if (!file_exists($fileName)) {
+            throw new Xinc_Build_Exception_NotFound($project,
+                                                    $buildTimestamp);
+        } else {
+            $serializedString = file_get_contents($fileName);
+            $unserialized = @unserialize($serializedString);
+            if (!$unserialized instanceof Xinc_Build) {
+                throw new Xinc_Build_Exception_Unserialization($project,
+                                                               $buildTimestamp);
+            } else {
+                /**
+                 * compatibility with old Xinc_Build w/o statistics object
+                 */
+                if ($unserialized->getStatistics() === null) {
+                    $unserialized->_statistics = new Xinc_Build_Statistics();
+                }
+                if ($unserialized->getConfigDirective('timezone.reporting') == true) {
+                    $unserialized->setConfigDirective('timezone', null);
+                }
+                if (!isset($unserialized->_internalProperties)) {
+                    if (method_exists($unserialized,'init')) {
+                        $unserialized->init();
+                    }
+
+                }
+                return $unserialized;
+            }
+        }
+    }
+
 }
