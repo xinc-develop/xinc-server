@@ -61,6 +61,8 @@ class Mint extends Base
         $this->setupBuildProperties($build);
         $this->setupConfigProperties($build);
         $this->parseProjectConfig($build,$project->getConfigXml());
+        $this->log->verbose("Setup tasks.");
+        $build->setupTasks();
         return $build;
     }
 
@@ -71,7 +73,6 @@ class Mint extends Base
      */
     public function build(BuildInterface $build)
     {
-
         $buildTime = time();
         $startTime = time() + microtime(true);
         $build->setBuildTime($buildTime);
@@ -81,6 +82,7 @@ class Mint extends Base
         }
 
         $build->process(Slot::INIT_PROCESS);
+        $this->debugBuildProperties($build);
         if ( $build->isFinished() ) {
             $this->log->info('Build of Project stopped in INIT phase');
             $build->setLastBuild();
@@ -89,6 +91,7 @@ class Mint extends Base
 
         $build->info("CHECKING PROJECT");
         $build->process(Slot::PRE_PROCESS);
+        $build->debug("RESULT STATUS IS " . $build->getStatusString());
         if ( $build->isFinished() ) {
             $this->log->info("Build of Project stopped, no build necessary");
             $build->setStatus(BuildInterface::INITIALIZED);
@@ -110,7 +113,7 @@ class Mint extends Base
             if ( BuildInterface::PASSED == $build->getStatus() ) {
                 $build->info("BUILD PASSED");
             }
-            else if ( Xinc_Build_Interface::STOPPED == $build->getStatus() ) {
+            else if ( BuildInterface::STOPPED == $build->getStatus() ) {
                 $build->warn("BUILD STOPPED");
             }
             else if (BuildInterface::FAILED == $build->getStatus() ) {
@@ -132,6 +135,15 @@ class Mint extends Base
             $build->setStatus(BuildInterface::STOPPED);
             $build->setLastBuild();
             return $this->endBuild($build);
+        }
+    }
+
+    protected function debugBuildProperties($build)
+    {
+        $props = $build->getAllProperties();
+        ksort($props);
+        foreach($props as $key => $value) {
+            $build->debug("Property {$key}: {$value}");
         }
     }
 }
