@@ -13,7 +13,7 @@
     ],
     "require": {
         "php": ">=5.4.4",
-        "xinc/core": "dev-master"
+        "xinc/core": "dev-2.5.x-dev"
     },
     "require-dev": {
         "phpunit/phpunit": "4.8.*",
